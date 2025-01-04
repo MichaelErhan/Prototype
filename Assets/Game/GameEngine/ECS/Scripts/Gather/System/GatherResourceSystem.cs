@@ -7,7 +7,7 @@ namespace Game.GameEngine.Ecs
     public sealed class GatherResourceSystem : IEcsFixedUpdate
     {
         private const float GATHERING_DURATION = 5.0f;
-        private const string RESOURCE_TYPE = "Minerals";
+        private const string RESOURCE_TYPE = "Минералов";
         private const int RESOURCE_AMOUNT = 5;
 
         private EcsPool<GatherTarget> targetResourcePool;
