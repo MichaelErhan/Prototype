@@ -1395,7 +1395,7 @@ MonoBehaviour:
   - {fileID: 366316663}
   - {fileID: 1999558355}
   - {fileID: 2119056425}
-  patrolWaitTime: 2
+  patrolWaitTime: 0.2
   moveSpeed: 5
 --- !u!1 &692974479 stripped
 GameObject:

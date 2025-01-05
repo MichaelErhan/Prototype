@@ -31,7 +31,6 @@ public class PatrolBehavior : MonoBehaviour
         character = GetComponent<CharacterEntity>();
         animator = GetComponentInChildren<Animator>();
 
-        // Проверка, есть ли точки патрулирования
         if (patrolPoints.Length == 0)
         {
             Debug.LogWarning("Не заданы точки патрулирования!");
@@ -43,32 +42,39 @@ public class PatrolBehavior : MonoBehaviour
 
     private void Update()
     {
-        // Если враги есть и мы в патрулировании, останавливаем патрулирование и начинаем бой
         if (isPatrolling)
         {
             Collider[] enemies = Physics.OverlapSphere(transform.position, detectionRadius, enemyLayer);
-            if (enemies.Length > 0)
+            if (enemies.Any(e => IsValidEnemy(e.transform)))
             {
-                // Обнаружены враги, прекращаем патрулирование и начинаем бой
                 StopPatrol();
                 AttackNearestEnemy(enemies);
                 return;
             }
         }
 
-        // Если в бою, но врагов больше нет или они мертвы, возвращаемся к патрулированию
         if (isInCombat)
         {
-            Collider[] enemies = Physics.OverlapSphere(transform.position, detectionRadius, enemyLayer);
-            if (enemies.Length == 0 || currentEnemy == null || !currentEnemy.gameObject.activeInHierarchy)
+            if (currentEnemy == null || !IsValidEnemy(currentEnemy))
             {
-                EndCombat();
-                StartPatrolling();
+                ClearEnemyData(); // Очищаем данные о текущем враге
+
+                Collider[] enemies = Physics.OverlapSphere(transform.position, detectionRadius, enemyLayer)
+                                           .Where(e => IsValidEnemy(e.transform))
+                                           .ToArray();
+                if (enemies.Length > 0)
+                {
+                    AttackNearestEnemy(enemies);
+                }
+                else
+                {
+                    EndCombat();
+                    StartPatrolling();
+                }
                 return;
             }
         }
 
-        // Если мы в патрулировании и врагов нет
         if (isPatrolling)
         {
             PatrolMovement();
@@ -79,88 +85,92 @@ public class PatrolBehavior : MonoBehaviour
     {
         if (patrolPoints.Length == 0) return;
 
-        // Если мы не ждем, начинаем движение
         if (isWaiting)
         {
             waitTimer += Time.deltaTime;
             if (waitTimer >= patrolWaitTime)
             {
-                isWaiting = false; // Заканчиваем ожидание
-                waitTimer = 0f; // Сбрасываем таймер ожидания
-                MoveToNextPoint(); // Переход к следующей точке
+                isWaiting = false;
+                waitTimer = 0f;
+                MoveToNextPoint();
             }
-            animator.SetInteger("State", 0); // Idle анимация
+            animator.SetInteger("State", 0);
             return;
         }
 
         Vector3 targetPosition = patrolPoints[currentPatrolIndex].position;
         Vector3 directionToTarget = (targetPosition - transform.position).normalized;
 
-        // Поворачиваем персонажа в направлении движения
         if (directionToTarget != Vector3.zero)
         {
             Quaternion targetRotation = Quaternion.LookRotation(directionToTarget);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 5f * Time.deltaTime);
         }
 
-        // Двигаемся к текущей точке
         transform.position = Vector3.MoveTowards(
             transform.position,
             targetPosition,
             moveSpeed * Time.deltaTime
         );
 
-        animator.SetInteger("State", 1); // Анимация ходьбы
+        animator.SetInteger("State", 1);
 
-        // Проверяем, достигли ли текущей точки
         if (Vector3.Distance(transform.position, targetPosition) < 0.1f)
         {
-            isWaiting = true; // Начинаем ожидание по завершении движения
+            isWaiting = true;
         }
+    }
+    private void ClearEnemyData()
+    {
+        currentEnemy = null;
+        character.RemoveData<CommandRequest>(); // Удаляем текущую команду
     }
 
     private void MoveToNextPoint()
     {
-        // Переход к следующей точке патрулирования
         currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
     }
 
     public void StartPatrolling()
     {
-        animator.SetInteger("State", 0); // Idle анимация
+        animator.SetInteger("State", 0);
         isPatrolling = true;
-        currentPatrolIndex = 0; // Начинаем с первой точки
-        isWaiting = false; // Не ждем
-        waitTimer = 0f; // Сбрасываем таймер ожидания
-
-        // Обновление данных патрулирования персонажа
+        currentPatrolIndex = 0;
+        isWaiting = false;
+        waitTimer = 0f;
         character.RemoveData<PatrolData>();
     }
 
     public void StopPatrol()
     {
-        animator.SetInteger("State", 0); // Idle анимация
-        isPatrolling = false; // Останавливаем патрулирование
-        isWaiting = false; // Устанавливаем флаг ожидания
-        waitTimer = 0f; // Сбрасываем таймер ожидания
+        animator.SetInteger("State", 0);
+        isPatrolling = false;
+        isWaiting = false;
+        waitTimer = 0f;
     }
 
     private void AttackNearestEnemy(Collider[] enemies)
     {
-        if (isInCombat)
-            return;  // Если уже в бою, не начинаем новую атаку
+        if (enemies == null || enemies.Length == 0)
+        {
+            EndCombat();
+            return;
+        }
 
-        isInCombat = true; // Устанавливаем флаг боевого состояния
-
-        // Находим ближайшего врага
         Transform nearestEnemy = enemies
+            .Where(e => IsValidEnemy(e.transform))
             .OrderBy(e => Vector3.Distance(transform.position, e.transform.position))
-            .First()
-            .transform;
+            .FirstOrDefault()?.transform;
 
-        currentEnemy = nearestEnemy; // Запоминаем нового врага
+        if (nearestEnemy == null)
+        {
+            EndCombat();
+            return;
+        }
 
-        // Отправляем команду атаки
+        currentEnemy = nearestEnemy;
+        isInCombat = true;
+
         character.SetData(new CommandRequest
         {
             type = CommandType.ATTACK_TARGET,
@@ -168,24 +178,26 @@ public class PatrolBehavior : MonoBehaviour
             status = CommandStatus.IDLE
         });
 
-        // Анимация атаки
-        animator.SetInteger("State", 3); // Боевая анимация
+        animator.SetInteger("State", 3); // Анимация атаки
     }
 
     private void EndCombat()
     {
-        isInCombat = false; // Снимаем флаг боевого состояния
-        currentEnemy = null; // Убираем врага
-        animator.SetInteger("State", 0); // Возвращаем в Idle анимацию
+        isInCombat = false;
+        currentEnemy = null;
+        animator.SetInteger("State", 0);
+    }
+
+    private bool IsValidEnemy(Transform enemy)
+    {
+        return enemy != null && enemy.gameObject.activeInHierarchy;
     }
 
     private void OnDrawGizmosSelected()
     {
-        // Визуализация радиуса обнаружения
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, detectionRadius);
 
-        // Визуализация маршрута патрулирования
         if (patrolPoints != null && patrolPoints.Length > 0)
         {
             Gizmos.color = Color.blue;
@@ -200,7 +212,7 @@ public class PatrolBehavior : MonoBehaviour
                     }
                 }
             }
-            // Замыкаем маршрут
+
             if (patrolPoints[0] != null && patrolPoints[patrolPoints.Length - 1] != null)
             {
                 Gizmos.DrawLine(patrolPoints[patrolPoints.Length - 1].position, patrolPoints[0].position);
