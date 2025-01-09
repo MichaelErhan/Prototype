@@ -58,7 +58,7 @@ public class EnemyBehavior : MonoBehaviour
         isInCombat = true;
 
         // Анимация атаки или боевого состояния
-        animator.SetInteger("State", 3); // Боевая анимация (например, 2 - атака)
+        animator.SetInteger("State", 3); // Боевая анимация
     }
 
     public void EndCombat()

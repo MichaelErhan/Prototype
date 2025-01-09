@@ -5,10 +5,8 @@ using UnityEngine;
 
 public class PatrolBehavior : MonoBehaviour
 {
-    [SerializeField]
-    private float detectionRadius = 10f; // Радиус обнаружения врагов
-    [SerializeField]
-    private LayerMask enemyLayer; // Слой для врагов
+    public float detectionRadius = 10f; // Радиус обнаружения врагов
+    public LayerMask enemyLayer; // Слой для врагов
     [SerializeField]
     private Transform[] patrolPoints; // Массив точек патрулирования
     [SerializeField]
@@ -18,7 +16,7 @@ public class PatrolBehavior : MonoBehaviour
 
     private CharacterEntity character;
     private Animator animator;
-    private bool isPatrolling = true; // Патрулирование активно
+    private bool isPatrolling = false; // Устанавливаем в false для отключения патрулирования по умолчанию
     private int currentPatrolIndex = 0; // Индекс текущей точки
     private float waitTimer = 0f; // Таймер ожидания на точках
     private bool isWaiting = false; // Флаг ожидания на точках
@@ -26,22 +24,24 @@ public class PatrolBehavior : MonoBehaviour
 
     private bool isInCombat = false; // Флаг для контроля боевого состояния
 
-    private void Start()
+    private void Awake()
     {
         character = GetComponent<CharacterEntity>();
         animator = GetComponentInChildren<Animator>();
+    }
 
+    private void Start()
+    {
         if (patrolPoints.Length == 0)
         {
             Debug.LogWarning("Не заданы точки патрулирования!");
             return;
         }
-
-        StartPatrolling();
     }
 
     private void Update()
     {
+        // Если патрулирование включено, продолжаем патрулировать
         if (isPatrolling)
         {
             Collider[] enemies = Physics.OverlapSphere(transform.position, detectionRadius, enemyLayer);
@@ -51,8 +51,11 @@ public class PatrolBehavior : MonoBehaviour
                 AttackNearestEnemy(enemies);
                 return;
             }
+
+            PatrolMovement();
         }
 
+        // Логика боя
         if (isInCombat)
         {
             if (currentEnemy == null || !IsValidEnemy(currentEnemy))
@@ -69,15 +72,9 @@ public class PatrolBehavior : MonoBehaviour
                 else
                 {
                     EndCombat();
-                    StartPatrolling();
                 }
                 return;
             }
-        }
-
-        if (isPatrolling)
-        {
-            PatrolMovement();
         }
     }
 
@@ -120,17 +117,22 @@ public class PatrolBehavior : MonoBehaviour
             isWaiting = true;
         }
     }
-    private void ClearEnemyData()
-    {
-        currentEnemy = null;
-        character.RemoveData<CommandRequest>(); // Удаляем текущую команду
-    }
 
     private void MoveToNextPoint()
     {
         currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
     }
 
+    // Остановить патрулирование
+    public void StopPatrol()
+    {
+        animator.SetInteger("State", 0);
+        isPatrolling = false;
+        isWaiting = false;
+        waitTimer = 0f;
+    }
+
+    // Запуск патрулирования
     public void StartPatrolling()
     {
         animator.SetInteger("State", 0);
@@ -141,15 +143,7 @@ public class PatrolBehavior : MonoBehaviour
         character.RemoveData<PatrolData>();
     }
 
-    public void StopPatrol()
-    {
-        animator.SetInteger("State", 0);
-        isPatrolling = false;
-        isWaiting = false;
-        waitTimer = 0f;
-    }
-
-    private void AttackNearestEnemy(Collider[] enemies)
+    public void AttackNearestEnemy(Collider[] enemies)
     {
         if (enemies == null || enemies.Length == 0)
         {
@@ -188,9 +182,15 @@ public class PatrolBehavior : MonoBehaviour
         animator.SetInteger("State", 0);
     }
 
-    private bool IsValidEnemy(Transform enemy)
+    public bool IsValidEnemy(Transform enemy)
     {
         return enemy != null && enemy.gameObject.activeInHierarchy;
+    }
+
+    private void ClearEnemyData()
+    {
+        currentEnemy = null;
+        character.RemoveData<CommandRequest>(); // Удаляем текущую команду
     }
 
     private void OnDrawGizmosSelected()
