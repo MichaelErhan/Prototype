@@ -1,6 +1,5 @@
 using Entities;
 using Game.GameEngine.Ecs;
-using System.Linq;
 using UnityEngine;
 
 public class PatrolBehavior : MonoBehaviour
@@ -45,7 +44,17 @@ public class PatrolBehavior : MonoBehaviour
         if (isPatrolling)
         {
             Collider[] enemies = Physics.OverlapSphere(transform.position, detectionRadius, enemyLayer);
-            if (enemies.Any(e => IsValidEnemy(e.transform)))
+            bool enemyDetected = false;
+            foreach (var enemy in enemies)
+            {
+                if (IsValidEnemy(enemy.transform))
+                {
+                    enemyDetected = true;
+                    break;
+                }
+            }
+
+            if (enemyDetected)
             {
                 StopPatrol();
                 AttackNearestEnemy(enemies);
@@ -62,12 +71,26 @@ public class PatrolBehavior : MonoBehaviour
             {
                 ClearEnemyData(); // Очищаем данные о текущем враге
 
-                Collider[] enemies = Physics.OverlapSphere(transform.position, detectionRadius, enemyLayer)
-                                           .Where(e => IsValidEnemy(e.transform))
-                                           .ToArray();
-                if (enemies.Length > 0)
+                Collider[] enemies = Physics.OverlapSphere(transform.position, detectionRadius, enemyLayer);
+                Collider nearestEnemy = null;
+                float nearestDistance = float.MaxValue;
+
+                foreach (var enemy in enemies)
                 {
-                    AttackNearestEnemy(enemies);
+                    if (IsValidEnemy(enemy.transform))
+                    {
+                        float distance = Vector3.Distance(transform.position, enemy.transform.position);
+                        if (distance < nearestDistance)
+                        {
+                            nearestEnemy = enemy;
+                            nearestDistance = distance;
+                        }
+                    }
+                }
+
+                if (nearestEnemy != null)
+                {
+                    AttackNearestEnemy(new Collider[] { nearestEnemy });
                 }
                 else
                 {
@@ -151,10 +174,21 @@ public class PatrolBehavior : MonoBehaviour
             return;
         }
 
-        Transform nearestEnemy = enemies
-            .Where(e => IsValidEnemy(e.transform))
-            .OrderBy(e => Vector3.Distance(transform.position, e.transform.position))
-            .FirstOrDefault()?.transform;
+        Collider nearestEnemy = null;
+        float nearestDistance = float.MaxValue;
+
+        foreach (var enemy in enemies)
+        {
+            if (IsValidEnemy(enemy.transform))
+            {
+                float distance = Vector3.Distance(transform.position, enemy.transform.position);
+                if (distance < nearestDistance)
+                {
+                    nearestEnemy = enemy;
+                    nearestDistance = distance;
+                }
+            }
+        }
 
         if (nearestEnemy == null)
         {
@@ -162,7 +196,7 @@ public class PatrolBehavior : MonoBehaviour
             return;
         }
 
-        currentEnemy = nearestEnemy;
+        currentEnemy = nearestEnemy.transform;
         isInCombat = true;
 
         character.SetData(new CommandRequest
@@ -191,6 +225,11 @@ public class PatrolBehavior : MonoBehaviour
     {
         currentEnemy = null;
         character.RemoveData<CommandRequest>(); // Удаляем текущую команду
+    }
+
+    public void Disable()
+    {
+        enabled = false;
     }
 
     private void OnDrawGizmosSelected()
