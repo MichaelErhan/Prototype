@@ -8,7 +8,7 @@ public class PatrolBehavior : MonoBehaviour
     public float detectionRadius = 10f; // Радиус обнаружения врагов
     public LayerMask enemyLayer; // Слой для враговщас
     
-    private Transform[] patrolPoints; // Массив точек патрулирования
+    public readonly List<Transform> patrolPoints = new (); // Массив точек патрулирования
     [SerializeField]
     private float patrolWaitTime = 2f; // Время ожидания в каждой точке
     [SerializeField]
@@ -86,28 +86,9 @@ public class PatrolBehavior : MonoBehaviour
             }
         }
     }
-    private void SetPoints()
+    private void SetPoints(IEnumerable<Transform> points)
     {
-        Transform testFolder = GameObject.Find("[TEST]")?.transform;
-        if (testFolder == null)
-        {
-            Debug.LogWarning("Папка '[TEST]' не найдена!");
-            patrolPoints = new Transform[0]; // Назначаем пустой массив
-            return;
-        }
-        patrolPoints = testFolder.GetComponentsInChildren<Transform>()
-            .Where(t => t != testFolder && t.name.StartsWith("Point") && t.gameObject.activeInHierarchy) // Исключаем саму папку и проверка на активность
-            .OrderBy(t => t.name)
-            .ToArray();
-
-        if (patrolPoints.Length == 0)
-        {
-            Debug.LogWarning("В папке '[TEST]' не найдены активные объекты с именем 'Point'!");
-        }
-        else
-        {
-            Debug.Log($"Найдено {patrolPoints.Length} точек для патрулирования.");
-        }
+        patrolPoints.AddRange(points);
     }
     private void PatrolMovement()
     {
