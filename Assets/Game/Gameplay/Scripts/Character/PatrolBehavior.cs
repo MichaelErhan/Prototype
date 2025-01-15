@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Entities;
 using Game.GameEngine.Ecs;
 using UnityEngine;
@@ -8,7 +9,7 @@ public class PatrolBehavior : MonoBehaviour
     public float detectionRadius = 10f; // Радиус обнаружения врагов
     public LayerMask enemyLayer; // Слой для враговщас
     
-    public readonly List<Transform> patrolPoints = new (); // Массив точек патрулирования
+    private Transform[] patrolPoints; // Массив точек патрулирования
     [SerializeField]
     private float patrolWaitTime = 2f; // Время ожидания в каждой точке
     [SerializeField]
@@ -23,10 +24,16 @@ public class PatrolBehavior : MonoBehaviour
     private Transform currentEnemy = null; // Текущий враг, с которым ведется бой
 
     private bool isInCombat = false; // Флаг для контроля боевого состояния
+
+    private readonly List<Transform> _patrolPoints = new();
     private void Awake()
     {
         character = GetComponent<CharacterEntity>();
         animator = GetComponentInChildren<Animator>();
+    }
+    public void SetPoints(IEnumerable<Transform> points)
+    {
+        patrolPoints = points.ToArray();
     }
     private void Update()
     {
@@ -86,10 +93,7 @@ public class PatrolBehavior : MonoBehaviour
             }
         }
     }
-    private void SetPoints(IEnumerable<Transform> points)
-    {
-        patrolPoints.AddRange(points);
-    }
+   
     private void PatrolMovement()
     {
         if (patrolPoints.Length == 0) return;
@@ -142,8 +146,6 @@ public class PatrolBehavior : MonoBehaviour
     // Запуск патрулирования
     public void StartPatrolling()
     {
-        SetPoints();
-        
         if (patrolPoints == null || patrolPoints.Length == 0)
         {
             Debug.LogWarning("Точки патрулирования не найдены! Патрулирование невозможно.");
