@@ -2,6 +2,7 @@ using System.Linq;
 using Game.GameEngine.Ecs;
 using Sirenix.OdinInspector;
 using UnityEngine;
+using System.Collections.Generic;
 
 namespace SampleProject
 {
@@ -11,7 +12,11 @@ namespace SampleProject
         private GameObject unitsParent; // Контейнер, где находятся все юниты
 
         private Entity[] unitPool;
-
+        
+        [SerializeField]private List<Transform> points;
+        
+        private PatrolBehavior _patrolBehavior;
+        
         private void Start()
         {
             // Проверяем, что unitsParent не пустой
@@ -86,7 +91,6 @@ namespace SampleProject
                 }
             }
         }
-
         [Button]
         public void Patrol()
         {
@@ -104,17 +108,14 @@ namespace SampleProject
                 {
                     Debug.Log($"Unit {unit.name} receiving patrol command.");
 
-                    // Находим компонент PatrolBehavior у юнита
+                    // Use the existing variable to hold the reference to PatrolBehavior
                     PatrolBehavior patrolBehavior = unit.GetComponent<PatrolBehavior>();
 
                     if (patrolBehavior != null)
                     {
-                        // Включаем компонент PatrolBehavior, если он выключен
+                        patrolBehavior.SetPoints(points);  // Pass points to the patrol behavior
                         patrolBehavior.enabled = true;
-
-                        // Запускаем патрулирование (точки уже настроены в PatrolBehavior)
-                        patrolBehavior.StartPatrolling();
-
+                        patrolBehavior.StartPatrolling();  // Start patrolling
                         Debug.Log($"Unit {unit.name} has started patrolling.");
                     }
                     else
