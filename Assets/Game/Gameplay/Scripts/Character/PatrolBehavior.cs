@@ -1,12 +1,13 @@
 using Entities;
 using Game.GameEngine.Ecs;
 using UnityEngine;
+using System.Linq;
 
 public class PatrolBehavior : MonoBehaviour
 {
     public float detectionRadius = 10f; // Радиус обнаружения врагов
-    public LayerMask enemyLayer; // Слой для врагов
-    [SerializeField]
+    public LayerMask enemyLayer; // Слой для враговщас
+    
     private Transform[] patrolPoints; // Массив точек патрулирования
     [SerializeField]
     private float patrolWaitTime = 2f; // Время ожидания в каждой точке
@@ -22,22 +23,11 @@ public class PatrolBehavior : MonoBehaviour
     private Transform currentEnemy = null; // Текущий враг, с которым ведется бой
 
     private bool isInCombat = false; // Флаг для контроля боевого состояния
-
     private void Awake()
     {
         character = GetComponent<CharacterEntity>();
         animator = GetComponentInChildren<Animator>();
     }
-
-    private void Start()
-    {
-        if (patrolPoints.Length == 0)
-        {
-            Debug.LogWarning("Не заданы точки патрулирования!");
-            return;
-        }
-    }
-
     private void Update()
     {
         // Если патрулирование включено, продолжаем патрулировать
@@ -53,17 +43,14 @@ public class PatrolBehavior : MonoBehaviour
                     break;
                 }
             }
-
             if (enemyDetected)
             {
                 StopPatrol();
                 AttackNearestEnemy(enemies);
                 return;
             }
-
             PatrolMovement();
         }
-
         // Логика боя
         if (isInCombat)
         {
@@ -87,7 +74,6 @@ public class PatrolBehavior : MonoBehaviour
                         }
                     }
                 }
-
                 if (nearestEnemy != null)
                 {
                     AttackNearestEnemy(new Collider[] { nearestEnemy });
@@ -100,7 +86,29 @@ public class PatrolBehavior : MonoBehaviour
             }
         }
     }
+    private void SetPoints()
+    {
+        Transform testFolder = GameObject.Find("[TEST]")?.transform;
+        if (testFolder == null)
+        {
+            Debug.LogWarning("Папка '[TEST]' не найдена!");
+            patrolPoints = new Transform[0]; // Назначаем пустой массив
+            return;
+        }
+        patrolPoints = testFolder.GetComponentsInChildren<Transform>()
+            .Where(t => t != testFolder && t.name.StartsWith("Point") && t.gameObject.activeInHierarchy) // Исключаем саму папку и проверка на активность
+            .OrderBy(t => t.name)
+            .ToArray();
 
+        if (patrolPoints.Length == 0)
+        {
+            Debug.LogWarning("В папке '[TEST]' не найдены активные объекты с именем 'Point'!");
+        }
+        else
+        {
+            Debug.Log($"Найдено {patrolPoints.Length} точек для патрулирования.");
+        }
+    }
     private void PatrolMovement()
     {
         if (patrolPoints.Length == 0) return;
@@ -117,7 +125,6 @@ public class PatrolBehavior : MonoBehaviour
             animator.SetInteger("State", 0);
             return;
         }
-
         Vector3 targetPosition = patrolPoints[currentPatrolIndex].position;
         Vector3 directionToTarget = (targetPosition - transform.position).normalized;
 
@@ -132,7 +139,6 @@ public class PatrolBehavior : MonoBehaviour
             targetPosition,
             moveSpeed * Time.deltaTime
         );
-
         animator.SetInteger("State", 1);
 
         if (Vector3.Distance(transform.position, targetPosition) < 0.1f)
@@ -140,12 +146,10 @@ public class PatrolBehavior : MonoBehaviour
             isWaiting = true;
         }
     }
-
     private void MoveToNextPoint()
     {
         currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
     }
-
     // Остановить патрулирование
     public void StopPatrol()
     {
@@ -154,10 +158,17 @@ public class PatrolBehavior : MonoBehaviour
         isWaiting = false;
         waitTimer = 0f;
     }
-
     // Запуск патрулирования
     public void StartPatrolling()
     {
+        SetPoints();
+        
+        if (patrolPoints == null || patrolPoints.Length == 0)
+        {
+            Debug.LogWarning("Точки патрулирования не найдены! Патрулирование невозможно.");
+            return;
+        }
+        
         animator.SetInteger("State", 0);
         isPatrolling = true;
         currentPatrolIndex = 0;
@@ -165,7 +176,6 @@ public class PatrolBehavior : MonoBehaviour
         waitTimer = 0f;
         character.RemoveData<PatrolData>();
     }
-
     public void AttackNearestEnemy(Collider[] enemies)
     {
         if (enemies == null || enemies.Length == 0)
@@ -231,7 +241,6 @@ public class PatrolBehavior : MonoBehaviour
     {
         enabled = false;
     }
-
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.yellow;
@@ -251,7 +260,6 @@ public class PatrolBehavior : MonoBehaviour
                     }
                 }
             }
-
             if (patrolPoints[0] != null && patrolPoints[patrolPoints.Length - 1] != null)
             {
                 Gizmos.DrawLine(patrolPoints[patrolPoints.Length - 1].position, patrolPoints[0].position);
